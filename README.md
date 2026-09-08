@@ -58,6 +58,7 @@ ratus/
 ├── Cargo.lock                  # Pinned deterministic build lockfile
 ├── Makefile                    # Local testing, build, install, and container management
 ├── Dockerfile                  # Multi-stage distroless scratch container
+├── DOCKERHUB.md                # Docker Hub repository overview and quick start guide
 ├── LICENSE-APACHE              # Apache 2.0 license
 ├── LICENSE-MIT                 # MIT license
 ├── NOTICE                      # Upstream Gatus attribution & copyright notices
