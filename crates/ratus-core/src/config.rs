@@ -15,7 +15,7 @@ fn default_interval() -> Duration {
 }
 
 /// Root configuration matching Gatus `config.yaml`.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct Config {
     /// Whether Prometheus metrics are enabled.

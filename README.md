@@ -98,6 +98,15 @@ ratus state reset --url http://127.0.0.1:8080
 
 # Load state snapshot into running server
 ratus state load --file state.json --url http://127.0.0.1:8080
+
+# Inject artificial latency & transient fault (fires 3 times then auto-recovers)
+ratus chaos inject -e core_api --status 503 --error "Simulated Gateway Timeout" --latency-ms 250 --limit 3
+
+# List all active chaos rules
+ratus chaos list
+
+# Clear all active chaos rules
+ratus chaos reset
 ```
 
 ---
@@ -116,6 +125,9 @@ ratus state load --file state.json --url http://127.0.0.1:8080
 | `/_ratus/state/dump` | `GET` | Atomic JSON snapshot of all endpoint states |
 | `/_ratus/state/reset` | `POST` | Atomically reset server storage and alert state |
 | `/_ratus/state/load` | `POST` | Hydrate server state from a JSON snapshot |
+| `/_ratus/chaos/inject` | `POST` | Inject or update a chaos simulation rule (latency, status, limits) |
+| `/_ratus/chaos/rules` | `GET`, `DELETE` | List all active chaos rules or flush all rules |
+| `/_ratus/chaos/reset` | `POST` | Flush all active chaos rules |
 
 ---
 

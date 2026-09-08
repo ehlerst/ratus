@@ -35,6 +35,17 @@ impl Scheduler {
         }
     }
 
+    /// Attach a custom shared chaos engine instance to this scheduler.
+    pub fn with_chaos(mut self, chaos: std::sync::Arc<crate::chaos::ChaosEngine>) -> Self {
+        self.dispatcher = self.dispatcher.with_chaos(chaos);
+        self
+    }
+
+    /// Access the underlying chaos engine.
+    pub fn chaos(&self) -> std::sync::Arc<crate::chaos::ChaosEngine> {
+        self.dispatcher.chaos()
+    }
+
     /// Start polling all enabled endpoints in the background.
     pub fn start(&self, config: &Config) {
         info!(

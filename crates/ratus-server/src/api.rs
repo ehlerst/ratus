@@ -6,6 +6,7 @@ use axum::http::{header, StatusCode};
 use axum::response::{Html, IntoResponse, Response};
 use axum::Json;
 use ratus_core::models::EndpointStatus;
+use ratus_prober::{ChaosEngine, ChaosRule};
 use ratus_storage::MemoryStorage;
 use serde_json::json;
 use std::sync::Arc;
@@ -15,6 +16,8 @@ use std::sync::Arc;
 pub struct AppState {
     /// In-memory storage handle.
     pub storage: Arc<MemoryStorage>,
+    /// Chaos engine handle for fault injection testing.
+    pub chaos: Arc<ChaosEngine>,
 }
 
 const UI_HTML: &str = include_str!("ui/index.html");
@@ -189,4 +192,25 @@ pub async fn load_state(
         Ok(_) => Ok(Json(json!({ "status": "load_success" }))),
         Err(_) => Err(StatusCode::BAD_REQUEST),
     }
+}
+
+/// Inject or update a chaos failure/latency simulation rule.
+pub async fn inject_chaos_rule(
+    State(state): State<AppState>,
+    Json(rule): Json<ChaosRule>,
+) -> Json<serde_json::Value> {
+    let key = rule.endpoint_key.clone();
+    state.chaos.add_rule(rule);
+    Json(json!({ "status": "rule_added", "endpoint_key": key }))
+}
+
+/// Retrieve all active chaos simulation rules.
+pub async fn get_chaos_rules(State(state): State<AppState>) -> Json<Vec<ChaosRule>> {
+    Json(state.chaos.get_rules())
+}
+
+/// Reset and clear all active chaos simulation rules.
+pub async fn reset_chaos_rules(State(state): State<AppState>) -> Json<serde_json::Value> {
+    state.chaos.clear();
+    Json(json!({ "status": "chaos_cleared" }))
 }

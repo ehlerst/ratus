@@ -1,0 +1,5 @@
+target/
+.git/
+Testcontainers/
+*.tar.gz
+*.db

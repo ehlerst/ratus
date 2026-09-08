@@ -222,3 +222,102 @@ async fn test_basic_auth_protection() {
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 }
+
+#[tokio::test]
+async fn test_chaos_api_endpoints() {
+    use ratus_prober::{ChaosEngine, ChaosRule};
+    use ratus_server::create_router_with_options;
+
+    let storage = Arc::new(MemoryStorage::new(50));
+    let chaos = Arc::new(ChaosEngine::new());
+    let app = create_router_with_options(storage, chaos.clone(), None);
+
+    // 1. Initial rules list should be empty
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/_ratus/chaos/rules")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+    let rules: Vec<ChaosRule> = serde_json::from_slice(&bytes).unwrap();
+    assert!(rules.is_empty());
+
+    // 2. Inject a chaos rule
+    let inject_payload = serde_json::json!({
+        "endpoint_key": "api_test",
+        "latency_ms": 100,
+        "jitter_ms": 20,
+        "force_status": 503,
+        "force_error": "Fault Injected",
+        "limit_times": 3
+    });
+
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/_ratus/chaos/inject")
+                .header("content-type", "application/json")
+                .body(Body::from(serde_json::to_string(&inject_payload).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // 3. Rules list should have 1 rule matching injected values
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/_ratus/chaos/rules")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+    let rules: Vec<ChaosRule> = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(rules.len(), 1);
+    assert_eq!(rules[0].endpoint_key, "api_test");
+    assert_eq!(rules[0].force_status, Some(503));
+    assert_eq!(rules[0].limit_times, Some(3));
+
+    // 4. Reset chaos rules
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/_ratus/chaos/reset")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // 5. Rules should be empty again
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/_ratus/chaos/rules")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+    let rules: Vec<ChaosRule> = serde_json::from_slice(&bytes).unwrap();
+    assert!(rules.is_empty());
+}

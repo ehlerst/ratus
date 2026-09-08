@@ -18,6 +18,7 @@ COPY --from=builder /usr/src/ratus/target/release/ratus /usr/local/bin/ratus
 
 # Set working directory and expose default port
 WORKDIR /app
+COPY config.yaml /app/config.yaml
 EXPOSE 8080
 
 ENTRYPOINT ["/usr/local/bin/ratus"]

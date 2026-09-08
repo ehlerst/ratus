@@ -3,8 +3,8 @@
 use clap::{Parser, Subcommand};
 use ratus_alert::AlertDispatcher;
 use ratus_core::Config;
-use ratus_prober::{ProbeDispatcher, ProbeEvent, Scheduler};
-use ratus_server::create_router_with_security;
+use ratus_prober::{ChaosEngine, ProbeDispatcher, ProbeEvent, Scheduler};
+use ratus_server::create_router_with_options;
 use ratus_storage::{MemoryStorage, SqliteStorage};
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -60,6 +60,58 @@ enum Commands {
     State {
         #[command(subcommand)]
         action: StateAction,
+    },
+
+    /// Manage chaos simulation rules (fault injection, latency, and auto-recovery)
+    Chaos {
+        #[command(subcommand)]
+        action: ChaosAction,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum ChaosAction {
+    /// Inject a chaos fault or latency rule
+    Inject {
+        /// Target endpoint key (e.g. "core_api", or "*" to match all endpoints)
+        #[arg(short = 'e', long = "endpoint")]
+        endpoint: String,
+
+        /// Artificial latency in milliseconds
+        #[arg(long, default_value_t = 0)]
+        latency_ms: u64,
+
+        /// Maximum additional jitter in milliseconds
+        #[arg(long, default_value_t = 0)]
+        jitter_ms: u64,
+
+        /// Forced HTTP status code (e.g. 500, 502, 503)
+        #[arg(long)]
+        status: Option<u16>,
+
+        /// Forced error message
+        #[arg(long)]
+        error: Option<String>,
+
+        /// Number of times to fire before auto-recovering
+        #[arg(long)]
+        limit: Option<u32>,
+
+        /// Base URL of running Ratus server
+        #[arg(long, default_value = "http://127.0.0.1:8080")]
+        url: String,
+    },
+    /// List all active chaos rules
+    List {
+        /// Base URL of running Ratus server
+        #[arg(long, default_value = "http://127.0.0.1:8080")]
+        url: String,
+    },
+    /// Clear all active chaos rules
+    Reset {
+        /// Base URL of running Ratus server
+        #[arg(long, default_value = "http://127.0.0.1:8080")]
+        url: String,
     },
 }
 
@@ -129,8 +181,16 @@ async fn main() -> ExitCode {
             let cfg = match Config::from_file(&config) {
                 Ok(c) => c,
                 Err(err) => {
-                    eprintln!("Failed to load configuration: {err}");
-                    return ExitCode::FAILURE;
+                    if !config.exists() {
+                        info!(
+                            "Configuration file '{}' not found, initializing with default configuration.",
+                            config.display()
+                        );
+                        Config::default()
+                    } else {
+                        eprintln!("Failed to load configuration: {err}");
+                        return ExitCode::FAILURE;
+                    }
                 }
             };
 
@@ -190,15 +250,17 @@ async fn main() -> ExitCode {
                 }
             });
 
+            let chaos = Arc::new(ChaosEngine::new());
+
             // Start periodic probe scheduler
-            let scheduler = Scheduler::new(event_tx);
+            let scheduler = Scheduler::new(event_tx).with_chaos(chaos.clone());
             scheduler.start(&cfg);
 
             let bind_port = port.unwrap_or(8080);
             let addr = format!("0.0.0.0:{bind_port}");
             info!("Binding HTTP server on {addr}...");
 
-            let router = create_router_with_security(storage, cfg.security.clone());
+            let router = create_router_with_options(storage, chaos, cfg.security.clone());
             let listener = match TcpListener::bind(&addr).await {
                 Ok(l) => l,
                 Err(e) => {
@@ -313,6 +375,85 @@ async fn main() -> ExitCode {
                                 ExitCode::SUCCESS
                             } else {
                                 eprintln!("Failed to load state: HTTP {}", resp.status());
+                                ExitCode::FAILURE
+                            }
+                        }
+                        Err(err) => {
+                            eprintln!("Error connecting to Ratus server: {err}");
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
+            }
+        }
+        Commands::Chaos { action } => {
+            let client = reqwest::Client::new();
+            match action {
+                ChaosAction::Inject {
+                    endpoint,
+                    latency_ms,
+                    jitter_ms,
+                    status,
+                    error,
+                    limit,
+                    url,
+                } => {
+                    let rule = ratus_prober::ChaosRule {
+                        endpoint_key: endpoint.clone(),
+                        latency_ms,
+                        jitter_ms,
+                        force_status: status,
+                        force_error: error,
+                        limit_times: limit,
+                        times_fired: 0,
+                    };
+                    let target_url = format!("{}/_ratus/chaos/inject", url.trim_end_matches('/'));
+                    match client.post(&target_url).json(&rule).send().await {
+                        Ok(resp) => {
+                            if resp.status().is_success() {
+                                println!(
+                                    "Successfully injected chaos rule for endpoint '{endpoint}'."
+                                );
+                                ExitCode::SUCCESS
+                            } else {
+                                eprintln!("Failed to inject chaos rule: HTTP {}", resp.status());
+                                ExitCode::FAILURE
+                            }
+                        }
+                        Err(err) => {
+                            eprintln!("Error connecting to Ratus server: {err}");
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
+                ChaosAction::List { url } => {
+                    let target_url = format!("{}/_ratus/chaos/rules", url.trim_end_matches('/'));
+                    match client.get(&target_url).send().await {
+                        Ok(resp) => {
+                            if resp.status().is_success() {
+                                let body = resp.text().await.unwrap_or_default();
+                                println!("{body}");
+                                ExitCode::SUCCESS
+                            } else {
+                                eprintln!("Failed to retrieve chaos rules: HTTP {}", resp.status());
+                                ExitCode::FAILURE
+                            }
+                        }
+                        Err(err) => {
+                            eprintln!("Error connecting to Ratus server: {err}");
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
+                ChaosAction::Reset { url } => {
+                    let target_url = format!("{}/_ratus/chaos/reset", url.trim_end_matches('/'));
+                    match client.post(&target_url).send().await {
+                        Ok(resp) => {
+                            if resp.status().is_success() {
+                                println!("All chaos rules have been reset.");
+                                ExitCode::SUCCESS
+                            } else {
+                                eprintln!("Failed to reset chaos rules: HTTP {}", resp.status());
                                 ExitCode::FAILURE
                             }
                         }
