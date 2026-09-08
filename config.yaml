@@ -1,9 +1,37 @@
 metrics: true
 
+ui:
+  title: "Ratus Service Dashboard"
+  description: "Automated service health monitoring in pure Rust"
+  header: "Ratus Infrastructure Status"
+
 endpoints:
   - name: ratus-health
     group: core
     url: "http://127.0.0.1:8080/health"
-    interval: 30s
+    interval: 10s
     conditions:
       - "[STATUS] == 200"
+      - "[RESPONSE_TIME] < 100"
+
+  - name: ratus-metrics
+    group: core
+    url: "http://127.0.0.1:8080/metrics"
+    interval: 15s
+    conditions:
+      - "[STATUS] == 200"
+
+  - name: ratus-otel
+    group: telemetry
+    url: "http://127.0.0.1:8080/v1/metrics"
+    interval: 15s
+    conditions:
+      - "[STATUS] == 200"
+
+  - name: local-ping
+    group: network
+    url: "ping://127.0.0.1"
+    interval: 10s
+    conditions:
+      - "[CONNECTED] == true"
+      - "[RESPONSE_TIME] < 50"

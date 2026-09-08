@@ -56,6 +56,7 @@
 ratus/
 ├── Cargo.toml                  # Workspace root & centralized dependency table
 ├── Cargo.lock                  # Pinned deterministic build lockfile
+├── Makefile                    # Local testing, build, install, and container management
 ├── Dockerfile                  # Multi-stage distroless scratch container
 ├── PLAN.md                     # Comprehensive multi-phase roadmap & benchmark specifications
 ├── README.md                   # Documentation & benchmark matrix
@@ -107,6 +108,47 @@ ratus chaos list
 
 # Clear all active chaos rules
 ratus chaos reset
+```
+
+---
+
+## 🛠️ Local Development & Makefile
+
+A feature-complete `Makefile` is included for zero-friction local development, building, testing, and system installation:
+
+```bash
+# Display help and all available targets
+make help
+
+# Local Testing & Running
+make run                     # Start Ratus locally (config.yaml on port 8080)
+make run CONFIG=custom.yaml  # Start Ratus with a custom configuration file
+make run-release             # Build and run the optimized release binary locally
+make validate                # Validate config.yaml syntax and endpoint rules
+make check TARGET=<url>      # Run an ad-hoc single probe check against a target
+
+# Build Steps
+make build                   # Compile workspace crates in debug mode
+make build-release           # Compile optimized release binary (target/release/ratus)
+make build-all               # Compile all workspace crates, tests, and benchmarks
+
+# Installation Steps
+make install                 # Build and install ratus to /usr/local/bin (or $PREFIX/bin)
+make install PREFIX=$HOME/.local # Install to custom user prefix
+make uninstall               # Remove installed binary from $PREFIX/bin
+make cargo-install           # Install directly to ~/.cargo/bin via Cargo
+
+# Testing & Quality
+make test                    # Run ultra-fast pure in-memory unit & integration tests
+make test-all                # Run workspace tests plus Docker testcontainers suite
+make lint                    # Run clippy with strict zero-compiler-warning policy
+make fmt                     # Format all codebase files with rustfmt
+make fmt-check               # Verify formatting in CI
+make bench                   # Run Criterion micro-benchmark suites
+
+# Container & Docker
+make docker-build            # Build minimal distroless Docker image (ratus:latest)
+make docker-run              # Run containerized Ratus on port 8080
 ```
 
 ---
