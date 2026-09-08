@@ -1,0 +1,38 @@
+metrics: true
+
+ui:
+  title: "Ratus Production Health"
+  description: "Live health status of microservices"
+  header: "Ratus Infrastructure Monitoring"
+  buttons:
+    - name: "Status"
+      link: "https://status.example.com"
+
+storage:
+  type: memory
+
+alerting:
+  slack:
+    webhook-url: "https://hooks.slack.com/services/T000/B000/XXXX"
+
+endpoints:
+  - name: auth-service
+    group: security
+    url: "https://auth.example.com/health"
+    interval: 10s
+    conditions:
+      - "[STATUS] == 200"
+      - "[RESPONSE_TIME] < 150"
+    alerts:
+      - type: slack
+        failure-threshold: 3
+        success-threshold: 2
+        send-on-resolved: true
+
+  - name: payment-gateway
+    group: billing
+    url: "https://payments.example.com/healthz"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY].status == OK"

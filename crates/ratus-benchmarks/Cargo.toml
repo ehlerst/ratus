@@ -1,0 +1,27 @@
+[package]
+name = "ratus-benchmarks"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+ratus-core = { workspace = true }
+ratus-eval = { workspace = true }
+ratus-prober = { workspace = true }
+ratus-storage = { workspace = true }
+ratus-alert = { workspace = true }
+ratus-server = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+criterion = { workspace = true }
+
+[[bench]]
+name = "config_ingestion"
+harness = false
+
+[[bench]]
+name = "condition_eval"
+harness = false

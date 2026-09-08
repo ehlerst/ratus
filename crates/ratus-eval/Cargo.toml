@@ -1,0 +1,17 @@
+[package]
+name = "ratus-eval"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+ratus-core = { workspace = true }
+serde_json = { workspace = true }
+regex = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }

@@ -1,0 +1,20 @@
+[package]
+name = "ratus-prober"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+ratus-core = { workspace = true }
+ratus-eval = { workspace = true }
+tokio = { workspace = true }
+reqwest = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+chrono = { workspace = true }
+bytes = { workspace = true }
+
+[dev-dependencies]
+wiremock = { workspace = true }

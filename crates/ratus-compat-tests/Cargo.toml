@@ -1,0 +1,22 @@
+[package]
+name = "ratus-compat-tests"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+ratus-core = { workspace = true }
+ratus-eval = { workspace = true }
+ratus-prober = { workspace = true }
+ratus-storage = { workspace = true }
+ratus-alert = { workspace = true }
+ratus-server = { workspace = true }
+tokio = { workspace = true }
+axum = { workspace = true }
+tower = { workspace = true }
+serde_yaml = { workspace = true }
+serde_json = { workspace = true }
+tempfile = { workspace = true }
+wiremock = { workspace = true }
