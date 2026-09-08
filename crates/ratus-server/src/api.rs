@@ -45,6 +45,56 @@ pub async fn get_endpoint_status(
     }
 }
 
+/// Payload accepted by the external probe push endpoint (`POST /api/v1/endpoints/{key}/external`).
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+pub struct ExternalPushPayload {
+    /// Whether the external probe succeeded.
+    pub success: bool,
+    /// HTTP status code or exit code.
+    #[serde(default)]
+    pub status: u16,
+    /// Probe execution duration in milliseconds or nanoseconds.
+    #[serde(default)]
+    pub duration: u64,
+    /// Optional errors encountered during probe.
+    #[serde(default)]
+    pub errors: Vec<String>,
+}
+
+/// Handler for external probe push ingestion (`POST /api/v1/endpoints/{key}/external`).
+pub async fn push_external_result(
+    State(state): State<AppState>,
+    Path(key): Path<String>,
+    Json(payload): Json<ExternalPushPayload>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let dur = if payload.duration > 1_000_000 {
+        std::time::Duration::from_nanos(payload.duration)
+    } else {
+        std::time::Duration::from_millis(payload.duration)
+    };
+
+    let result = ratus_core::models::EndpointResult {
+        timestamp: chrono::Utc::now(),
+        success: payload.success,
+        status_code: payload.status,
+        duration: dur,
+        errors: payload.errors,
+        condition_results: Vec::new(),
+        ip: None,
+        hostname: None,
+    };
+
+    let (group, name) = if let Some((g, n)) = key.split_once('_') {
+        (Some(g), n)
+    } else {
+        (None, key.as_str())
+    };
+
+    state.storage.save_result_by_key(&key, name, group, result);
+
+    (StatusCode::OK, Json(json!({ "status": "success" })))
+}
+
 /// Handler generating dynamic SVG health/uptime badge.
 pub async fn get_endpoint_badge(
     State(state): State<AppState>,

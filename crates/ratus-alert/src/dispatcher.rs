@@ -123,6 +123,36 @@ impl AlertDispatcher {
                     return;
                 }
             }
+            "telegram" => {
+                if let Some(ref telegram) = self.alerting_config.telegram {
+                    (
+                        format!("https://api.telegram.org/bot{}/sendMessage", telegram.token),
+                        "telegram".to_string(),
+                    )
+                } else {
+                    return;
+                }
+            }
+            "pagerduty" => {
+                if let Some(ref pd) = self.alerting_config.pagerduty {
+                    (
+                        format!(
+                            "https://events.pagerduty.com/v2/enqueue#{}",
+                            pd.integration_key
+                        ),
+                        "pagerduty".to_string(),
+                    )
+                } else {
+                    return;
+                }
+            }
+            "teams" => {
+                if let Some(ref custom) = self.alerting_config.custom {
+                    (custom.url.clone(), "teams".to_string())
+                } else {
+                    return;
+                }
+            }
             "custom" => {
                 if let Some(ref custom) = self.alerting_config.custom {
                     (custom.url.clone(), "custom".to_string())
@@ -151,15 +181,55 @@ impl AlertDispatcher {
             notif.provider_type, notif.target_url
         );
 
-        let payload = match notif.provider_type.as_str() {
-            "slack" => json!({ "text": notif.message }),
-            "discord" => json!({ "content": notif.message }),
-            _ => {
-                json!({ "text": notif.message, "status": if notif.is_incident { "down" } else { "up" } })
+        let (url, payload) = match notif.provider_type.as_str() {
+            "slack" => (notif.target_url.as_str(), json!({ "text": notif.message })),
+            "discord" => (
+                notif.target_url.as_str(),
+                json!({ "content": notif.message }),
+            ),
+            "telegram" => (
+                notif.target_url.as_str(),
+                json!({
+                    "text": notif.message,
+                    "parse_mode": "Markdown"
+                }),
+            ),
+            "pagerduty" => {
+                let (base_url, key) = notif
+                    .target_url
+                    .split_once('#')
+                    .unwrap_or((notif.target_url.as_str(), ""));
+                (
+                    base_url,
+                    json!({
+                        "routing_key": key,
+                        "event_action": if notif.is_incident { "trigger" } else { "resolve" },
+                        "payload": {
+                            "summary": notif.message,
+                            "source": "ratus",
+                            "severity": if notif.is_incident { "error" } else { "info" }
+                        }
+                    }),
+                )
             }
+            "teams" => (
+                notif.target_url.as_str(),
+                json!({
+                    "@type": "MessageCard",
+                    "@context": "http://schema.org/extensions",
+                    "text": notif.message
+                }),
+            ),
+            _ => (
+                notif.target_url.as_str(),
+                json!({
+                    "text": notif.message,
+                    "status": if notif.is_incident { "down" } else { "up" }
+                }),
+            ),
         };
 
-        match client.post(&notif.target_url).json(&payload).send().await {
+        match client.post(url).json(&payload).send().await {
             Ok(resp) => {
                 if !resp.status().is_success() {
                     error!(

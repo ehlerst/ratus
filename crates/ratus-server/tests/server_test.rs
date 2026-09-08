@@ -100,13 +100,121 @@ async fn test_server_routes_in_memory() {
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
-    // 6. Reset state
+    // 6. Push external result
+    let push_body = serde_json::json!({
+        "success": true,
+        "status": 204,
+        "duration": 25,
+        "errors": []
+    });
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/endpoints/cron_worker/external")
+                .header("content-type", "application/json")
+                .body(Body::from(serde_json::to_string(&push_body).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Verify pushed endpoint exists
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/endpoints/cron_worker/statuses")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // 7. Reset state
     let resp = app
         .clone()
         .oneshot(
             Request::builder()
                 .method("POST")
                 .uri("/_ratus/state/reset")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn test_basic_auth_protection() {
+    use ratus_core::config::{BasicAuthConfig, SecurityConfig};
+    use ratus_server::create_router_with_security;
+
+    let storage = Arc::new(MemoryStorage::new(50));
+    let security = SecurityConfig {
+        basic: Some(BasicAuthConfig {
+            username: "admin".to_string(),
+            password: "supersecretpassword".to_string(),
+        }),
+    };
+
+    let app = create_router_with_security(storage, Some(security));
+
+    // 1. Health endpoint should always bypass auth
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/health")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // 2. Status API without credentials should return 401 Unauthorized
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/endpoints/statuses")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+
+    // 3. Status API with invalid credentials should return 401 Unauthorized
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/endpoints/statuses")
+                .header("authorization", "Basic d3Jvbmc6cGFzc3dvcmQ=")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+
+    // 4. Status API with valid credentials should succeed
+    // admin:supersecretpassword in base64 is "YWRtaW46c3VwZXJzZWNyZXRwYXNzd29yZA=="
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/endpoints/statuses")
+                .header(
+                    "authorization",
+                    "Basic YWRtaW46c3VwZXJzZWNyZXRwYXNzd29yZA==",
+                )
                 .body(Body::empty())
                 .unwrap(),
         )

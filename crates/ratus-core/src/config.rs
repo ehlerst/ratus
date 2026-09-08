@@ -26,6 +26,10 @@ pub struct Config {
     #[serde(default)]
     pub storage: Option<StorageConfig>,
 
+    /// Security and authentication settings.
+    #[serde(default)]
+    pub security: Option<SecurityConfig>,
+
     /// Web UI appearance and links configuration.
     #[serde(default)]
     pub ui: Option<UiConfig>,
@@ -320,6 +324,25 @@ pub struct StorageConfig {
     /// Storage database file path or connection string.
     #[serde(default)]
     pub path: Option<String>,
+}
+
+/// Security and authentication configuration.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub struct SecurityConfig {
+    /// HTTP Basic authentication credentials.
+    #[serde(default)]
+    pub basic: Option<BasicAuthConfig>,
+}
+
+/// HTTP Basic authentication settings.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct BasicAuthConfig {
+    /// Authorized username.
+    pub username: String,
+    /// Authorized password.
+    pub password: String,
 }
 
 /// Web UI customization.

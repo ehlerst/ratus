@@ -4,8 +4,8 @@ use clap::{Parser, Subcommand};
 use ratus_alert::AlertDispatcher;
 use ratus_core::Config;
 use ratus_prober::{ProbeDispatcher, ProbeEvent, Scheduler};
-use ratus_server::create_router;
-use ratus_storage::MemoryStorage;
+use ratus_server::create_router_with_security;
+use ratus_storage::{MemoryStorage, SqliteStorage};
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::Arc;
@@ -135,6 +135,39 @@ async fn main() -> ExitCode {
             };
 
             let storage = Arc::new(MemoryStorage::default());
+
+            // Check if SQLite persistence is configured
+            let sqlite_storage: Option<Arc<SqliteStorage>> = match &cfg.storage {
+                Some(s_cfg) if s_cfg.storage_type == "sqlite" => {
+                    let path = s_cfg.path.as_deref().unwrap_or("ratus.db");
+                    info!("Initializing SQLite persistent storage at '{path}' (WAL mode)...");
+                    match SqliteStorage::open(path) {
+                        Ok(sqlite) => {
+                            if let Ok(historical) = sqlite.load_all_recent(50) {
+                                for (key, results) in historical {
+                                    for r in results {
+                                        let (group, name) =
+                                            if let Some((g, n)) = key.split_once('_') {
+                                                (Some(g), n)
+                                            } else {
+                                                (None, key.as_str())
+                                            };
+                                        storage.save_result_by_key(&key, name, group, r);
+                                    }
+                                }
+                                info!("Restored historical results from SQLite persistence.");
+                            }
+                            Some(Arc::new(sqlite))
+                        }
+                        Err(e) => {
+                            error!("Failed to open SQLite database at '{path}': {e}");
+                            None
+                        }
+                    }
+                }
+                _ => None,
+            };
+
             let alerting_cfg = cfg.alerting.clone().unwrap_or_default();
             let alert_dispatcher = AlertDispatcher::new(alerting_cfg);
 
@@ -144,9 +177,13 @@ async fn main() -> ExitCode {
             // Background event loop routing probe outcomes to storage and alerting
             let loop_storage = storage.clone();
             let loop_alerts = alert_dispatcher.clone();
+            let loop_sqlite = sqlite_storage;
             tokio::spawn(async move {
                 while let Some(event) = event_rx.recv().await {
                     loop_storage.save_result(&event.endpoint, event.result.clone());
+                    if let Some(ref sqlite) = loop_sqlite {
+                        let _ = sqlite.save_result(&event.endpoint, &event.result);
+                    }
                     loop_alerts
                         .process_result(&event.endpoint, &event.result)
                         .await;
@@ -161,7 +198,7 @@ async fn main() -> ExitCode {
             let addr = format!("0.0.0.0:{bind_port}");
             info!("Binding HTTP server on {addr}...");
 
-            let router = create_router(storage);
+            let router = create_router_with_security(storage, cfg.security.clone());
             let listener = match TcpListener::bind(&addr).await {
                 Ok(l) => l,
                 Err(e) => {

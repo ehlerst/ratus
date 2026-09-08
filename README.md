@@ -112,9 +112,58 @@ ratus state load --file state.json --url http://127.0.0.1:8080
 | `/api/v1/endpoints/statuses` | `GET` | Full status array with historical results and uptime |
 | `/api/v1/endpoints/{key}/statuses` | `GET` | Status details for a specific endpoint |
 | `/api/v1/endpoints/{key}/badge.svg` | `GET` | Micro-second dynamic SVG badge generation |
+| `/api/v1/endpoints/{key}/external` | `POST` | Push-based external probe ingestion |
 | `/_ratus/state/dump` | `GET` | Atomic JSON snapshot of all endpoint states |
 | `/_ratus/state/reset` | `POST` | Atomically reset server storage and alert state |
 | `/_ratus/state/load` | `POST` | Hydrate server state from a JSON snapshot |
+
+---
+
+## ⚙️ Configuration Reference
+
+Ratus supports 100% drop-in syntax with Gatus `config.yaml`:
+
+```yaml
+# Optional HTTP Basic Authentication
+security:
+  basic:
+    username: admin
+    password: ${ADMIN_PASSWORD:supersecret}
+
+# Storage engine: memory (default) or persistent sqlite
+storage:
+  type: sqlite
+  path: /data/ratus.db
+
+# Global Alerting Providers
+alerting:
+  slack:
+    webhook-url: ${SLACK_WEBHOOK_URL}
+  discord:
+    webhook-url: ${DISCORD_WEBHOOK_URL}
+  telegram:
+    token: ${TELEGRAM_BOT_TOKEN}
+    chat-id: ${TELEGRAM_CHAT_ID}
+  pagerduty:
+    integration-key: ${PAGERDUTY_KEY}
+
+# Monitored Endpoints
+endpoints:
+  - name: core-api
+    group: production
+    url: https://api.example.com/health
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+      - "[RESPONSE_TIME] < 300"
+      - "[CERTIFICATE_EXPIRATION] > 48h"
+      - "[BODY].status == UP"
+    alerts:
+      - type: slack
+        failure-threshold: 3
+        success-threshold: 2
+        send-on-resolved: true
+```
 
 ---
 

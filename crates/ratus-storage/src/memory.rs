@@ -110,6 +110,26 @@ impl MemoryStorage {
         state.record_result(result);
     }
 
+    /// Save a probe result directly by endpoint key.
+    pub fn save_result_by_key(
+        &self,
+        key: &str,
+        name: &str,
+        group: Option<&str>,
+        result: EndpointResult,
+    ) {
+        let mut map = self.endpoints.write();
+        let state = map.entry(key.to_string()).or_insert_with(|| {
+            EndpointState::new(
+                name.to_string(),
+                group.map(|s| s.to_string()),
+                key.to_string(),
+                self.capacity,
+            )
+        });
+        state.record_result(result);
+    }
+
     /// Get current live status for an endpoint key.
     pub fn get_status(&self, key: &str) -> Option<EndpointStatus> {
         let map = self.endpoints.read();
