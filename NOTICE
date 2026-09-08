@@ -1,0 +1,21 @@
+Project Ratus
+Copyright (c) 2026 Tim Ehlers
+
+This product is inspired by and designed as a high-performance Rust drop-in
+replacement for Gatus (https://github.com/TwiN/gatus), originally authored by
+TwiN and released under the Apache License, Version 2.0.
+
+Original Gatus Project:
+- Upstream: https://github.com/TwiN/gatus
+- Author: TwiN
+- Copyright: (c) 2020-2026 TwiN
+- License: Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
+
+Trademark & Attribution Notice:
+- "Gatus" is a project and trademark of TwiN.
+- Project Ratus is an independent, clean-room reimplementation in pure Rust
+  and is neither affiliated with, endorsed by, nor sponsored by TwiN or the
+  upstream Gatus project maintainers.
+- Configuration schemas and condition evaluation semantics are implemented
+  for wire and syntax compatibility in accordance with Section 4 of the
+  Apache License, Version 2.0.

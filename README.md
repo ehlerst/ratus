@@ -58,6 +58,9 @@ ratus/
 ├── Cargo.lock                  # Pinned deterministic build lockfile
 ├── Makefile                    # Local testing, build, install, and container management
 ├── Dockerfile                  # Multi-stage distroless scratch container
+├── LICENSE-APACHE              # Apache 2.0 license
+├── LICENSE-MIT                 # MIT license
+├── NOTICE                      # Upstream Gatus attribution & copyright notices
 ├── PLAN.md                     # Comprehensive multi-phase roadmap & benchmark specifications
 ├── README.md                   # Documentation & benchmark matrix
 ├── crates/
@@ -281,6 +284,16 @@ bash scripts/run_head_to_head_benchmark.sh
 
 ---
 
-## 📜 License
+## 📜 License & Attribution
 
-Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or [MIT license](LICENSE-MIT) at your option.
+Project Ratus is dual-licensed under either:
+
+* [Apache License, Version 2.0](LICENSE-APACHE)
+* [MIT License](LICENSE-MIT)
+
+at your option.
+
+### 🙏 Acknowledgments & Upstream Attribution
+* Ratus is inspired by and designed as an ultra-fast Rust drop-in replacement for [**Gatus**](https://github.com/TwiN/gatus), originally created by [**TwiN**](https://github.com/TwiN) and licensed under the [Apache License 2.0](http://www.apache.org/licenses/LICENSE-2.0).
+* See the [NOTICE](NOTICE) file for formal copyright attribution and trademark disclaimers.
+* Gatus is a project and trademark of TwiN. Project Ratus is an independent clean-room reimplementation in pure Rust and is not affiliated with or endorsed by TwiN.
