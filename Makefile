@@ -35,7 +35,7 @@ help:
 	@echo "Usage: make [TARGET] [VARIABLE=value]"
 	@echo ""
 	@echo "🚀 Local Testing & Running:"
-	@echo "  make run             Start Ratus daemon & UI locally (CONFIG=$(CONFIG), PORT=$(PORT))"
+	@echo "  make run             Build and start Ratus daemon & UI locally (CONFIG=$(CONFIG), PORT=$(PORT))"
 	@echo "  make start           Alias for 'make run'"
 	@echo "  make dev             Alias for 'make run'"
 	@echo "  make run-release     Build and run optimized release binary locally"
@@ -87,9 +87,9 @@ build-all:
 # ------------------------------------------------------------------------------
 # Local Testing & Running
 # ------------------------------------------------------------------------------
-run:
+run: build
 	@echo "Starting Ratus locally with config='$(CONFIG)' on port $(PORT)..."
-	RUST_LOG=$(RUST_LOG) $(CARGO) run --bin ratus -- start -c $(CONFIG) -p $(PORT)
+	RUST_LOG=$(RUST_LOG) $(DEBUG_BIN) start -c $(CONFIG) -p $(PORT)
 
 start: run
 dev: run

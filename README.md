@@ -121,7 +121,7 @@ A feature-complete `Makefile` is included for zero-friction local development, b
 make help
 
 # Local Testing & Running
-make run                     # Start Ratus locally (config.yaml on port 8080)
+make run                     # Build workspace and start Ratus locally (config.yaml on port 8080)
 make run CONFIG=custom.yaml  # Start Ratus with a custom configuration file
 make run-release             # Build and run the optimized release binary locally
 make validate                # Validate config.yaml syntax and endpoint rules
