@@ -165,6 +165,97 @@ pub async fn get_metrics(State(state): State<AppState>) -> Response {
         .into_response()
 }
 
+/// Helper function generating standard OpenTelemetry (OTLP/HTTP) JSON metric payload.
+pub fn generate_otlp_metrics(storage: &MemoryStorage, service_name: &str) -> serde_json::Value {
+    let statuses = storage.get_all_statuses();
+    let now_nano = chrono::Utc::now()
+        .timestamp_nanos_opt()
+        .unwrap_or(0)
+        .to_string();
+
+    let mut status_points = Vec::new();
+    let mut duration_points = Vec::new();
+    let mut uptime_points = Vec::new();
+
+    for s in &statuses {
+        let is_up = s.latest_result().map(|r| r.success).unwrap_or(true);
+        let status_val = if is_up { 1 } else { 0 };
+        let uptime = s.uptime_percentage();
+        let last_dur_ms = s
+            .latest_result()
+            .map(|r| r.duration.as_secs_f64() * 1000.0)
+            .unwrap_or(0.0);
+
+        let attrs = json!([
+            { "key": "endpoint.key", "value": { "stringValue": s.key } },
+            { "key": "endpoint.name", "value": { "stringValue": s.name } },
+            { "key": "endpoint.group", "value": { "stringValue": s.group.as_deref().unwrap_or("default") } }
+        ]);
+
+        status_points.push(json!({
+            "timeUnixNano": now_nano,
+            "asInt": status_val,
+            "attributes": attrs
+        }));
+
+        duration_points.push(json!({
+            "timeUnixNano": now_nano,
+            "asDouble": last_dur_ms,
+            "attributes": attrs
+        }));
+
+        uptime_points.push(json!({
+            "timeUnixNano": now_nano,
+            "asDouble": uptime,
+            "attributes": attrs
+        }));
+    }
+
+    json!({
+        "resourceMetrics": [
+            {
+                "resource": {
+                    "attributes": [
+                        { "key": "service.name", "value": { "stringValue": service_name } },
+                        { "key": "service.version", "value": { "stringValue": env!("CARGO_PKG_VERSION") } }
+                    ]
+                },
+                "scopeMetrics": [
+                    {
+                        "scope": { "name": "ratus.prober", "version": env!("CARGO_PKG_VERSION") },
+                        "metrics": [
+                            {
+                                "name": "ratus.endpoint.status",
+                                "description": "Endpoint operational health status (1 = UP, 0 = DOWN)",
+                                "unit": "1",
+                                "gauge": { "dataPoints": status_points }
+                            },
+                            {
+                                "name": "ratus.endpoint.duration_ms",
+                                "description": "Latest endpoint probe response duration in milliseconds",
+                                "unit": "ms",
+                                "gauge": { "dataPoints": duration_points }
+                            },
+                            {
+                                "name": "ratus.endpoint.uptime_percentage",
+                                "description": "Rolling uptime availability percentage (0-100)",
+                                "unit": "%",
+                                "gauge": { "dataPoints": uptime_points }
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    })
+}
+
+/// Handler exporting OpenTelemetry (OTLP/HTTP JSON) metrics.
+pub async fn get_otel_metrics(State(state): State<AppState>) -> Response {
+    let otlp = generate_otlp_metrics(&state.storage, "ratus");
+    ([(header::CONTENT_TYPE, "application/json")], Json(otlp)).into_response()
+}
+
 /// Deterministic test lifecycle: reset state.
 pub async fn reset_state(State(state): State<AppState>) -> Json<serde_json::Value> {
     state.storage.reset();

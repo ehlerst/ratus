@@ -3,151 +3,726 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ratus - Service Health Dashboard</title>
+  <title>Ratus - High-Performance Service Health Dashboard</title>
   <style>
     :root {
-      --bg: #0d1117;
-      --card-bg: #161b22;
-      --border: #30363d;
-      --text: #c9d1d9;
-      --text-muted: #8b949e;
-      --success: #2ea043;
-      --danger: #da3633;
-      --warning: #d29922;
-      --primary: #58a6ff;
+      --bg: #090d16;
+      --card-bg: rgba(17, 24, 39, 0.75);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --border: #1f293d;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --success: #10b981;
+      --success-glow: rgba(16, 185, 129, 0.35);
+      --danger: #ef4444;
+      --danger-glow: rgba(239, 68, 68, 0.35);
+      --warning: #f59e0b;
+      --primary: #38bdf8;
+      --primary-glow: rgba(56, 189, 248, 0.25);
+      --accent: #818cf8;
+      --pill-bg: rgba(255, 255, 255, 0.05);
+      --pill-hover: rgba(255, 255, 255, 0.12);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", system-ui, sans-serif;
       background-color: var(--bg);
+      background-image: 
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(56, 189, 248, 0.12), transparent),
+        radial-gradient(ellipse 60% 40% at 90% 80%, rgba(129, 140, 248, 0.08), transparent);
       color: var(--text);
       padding: 24px;
       line-height: 1.5;
+      min-height: 100vh;
     }
+    .container { max-width: 1280px; margin: 0 auto; }
     header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 24px;
-      padding-bottom: 16px;
+      padding-bottom: 20px;
       border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+      gap: 16px;
     }
-    h1 { font-size: 24px; color: #fff; display: flex; align-items: center; gap: 8px; }
-    .status-summary { font-size: 14px; color: var(--text-muted); }
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 16px; }
-    .card {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-icon {
+      font-size: 28px;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 6px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--card-border);
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .header-actions { display: flex; align-items: center; gap: 12px; }
+    .btn {
+      background: var(--pill-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      padding: 7px 14px;
       border-radius: 8px;
-      padding: 16px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
     }
-    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-    .endpoint-name { font-weight: 600; font-size: 16px; color: #fff; }
-    .endpoint-group { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
-    .badge {
-      padding: 2px 8px;
-      border-radius: 12px;
+    .btn:hover { background: var(--pill-hover); border-color: rgba(255, 255, 255, 0.2); }
+    .btn-primary { background: rgba(56, 189, 248, 0.15); color: var(--primary); border-color: rgba(56, 189, 248, 0.3); }
+    .btn-primary:hover { background: rgba(56, 189, 248, 0.25); }
+    .btn-chaos { background: rgba(245, 158, 11, 0.15); color: var(--warning); border-color: rgba(245, 158, 11, 0.3); }
+    .btn-chaos:hover { background: rgba(245, 158, 11, 0.25); }
+    
+    /* Hero Banner */
+    .hero-banner {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 24px;
+      margin-bottom: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 20px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+    }
+    .hero-status { display: flex; align-items: center; gap: 16px; }
+    .beacon {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 12px var(--success-glow);
+      position: relative;
+    }
+    .beacon::after {
+      content: '';
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: inherit;
+      animation: pulse 2s infinite ease-out;
+    }
+    .beacon-down {
+      background: var(--danger);
+      box-shadow: 0 0 12px var(--danger-glow);
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); opacity: 0.8; }
+      100% { transform: scale(2.6); opacity: 0; }
+    }
+    .hero-title { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 2px; }
+    .hero-subtitle { font-size: 13px; color: var(--text-muted); }
+    .hero-metrics { display: flex; gap: 24px; }
+    .metric-box { text-align: right; }
+    .metric-val { font-size: 22px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
+    .metric-lbl { font-size: 11px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; }
+
+    /* Controls Bar */
+    .controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .group-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+    .pill {
+      padding: 5px 12px;
+      border-radius: 20px;
       font-size: 12px;
       font-weight: 600;
+      background: var(--pill-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
     }
-    .badge-up { background: rgba(46, 160, 67, 0.2); color: #3fb950; border: 1px solid #2ea043; }
-    .badge-down { background: rgba(218, 54, 51, 0.2); color: #f85149; border: 1px solid #da3633; }
+    .pill:hover, .pill.active {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: rgba(56, 189, 248, 0.4);
+      color: var(--primary);
+    }
+    .search-box {
+      position: relative;
+      min-width: 240px;
+    }
+    .search-input {
+      width: 100%;
+      background: rgba(17, 24, 39, 0.8);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 7px 12px 7px 32px;
+      font-size: 13px;
+      color: #fff;
+      outline: none;
+      transition: border 0.2s ease;
+    }
+    .search-input:focus { border-color: var(--primary); }
+    .search-icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    /* Grid & Cards */
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 18px; }
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.18);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4), 0 0 16px rgba(56, 189, 248, 0.05);
+    }
+    .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+    .endpoint-name { font-weight: 600; font-size: 16px; color: #fff; letter-spacing: -0.2px; }
+    .endpoint-group { font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 600; letter-spacing: 0.6px; margin-bottom: 2px; }
+    .badge {
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .badge-up { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); }
+    .badge-down { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.35); }
+    
+    /* Sparkline */
+    .sparkline-wrapper {
+      margin: 10px 0 8px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .sparkline-svg {
+      flex: 1;
+      height: 28px;
+      overflow: visible;
+    }
+    .sparkline-stats {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+      min-width: 60px;
+    }
+
+    /* History Track */
     .status-bar {
       display: flex;
       gap: 3px;
-      height: 24px;
-      margin: 12px 0;
-      background: rgba(255,255,255,0.02);
+      height: 26px;
+      margin: 10px 0;
+      background: rgba(0, 0, 0, 0.25);
       padding: 3px;
-      border-radius: 4px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.03);
     }
     .status-segment {
       flex: 1;
-      border-radius: 2px;
-      min-width: 4px;
+      border-radius: 3px;
+      min-width: 5px;
+      cursor: pointer;
+      position: relative;
+      transition: transform 0.15s ease, opacity 0.15s ease;
     }
+    .status-segment:hover { transform: scaleY(1.2); opacity: 0.9; }
     .seg-up { background: var(--success); }
     .seg-down { background: var(--danger); }
+    
+    /* Card Footer */
     .card-footer {
       display: flex;
       justify-content: space-between;
-      font-size: 13px;
+      align-items: center;
+      font-size: 12px;
       color: var(--text-muted);
-      border-top: 1px solid var(--border);
-      padding-top: 10px;
+      border-top: 1px solid var(--card-border);
+      padding-top: 12px;
+      margin-top: 8px;
     }
-    .val { color: var(--text); font-weight: 500; }
+    .footer-left { display: flex; gap: 14px; }
+    .val { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+    .badge-link {
+      color: var(--primary);
+      text-decoration: none;
+      font-size: 11px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .badge-link:hover { text-decoration: underline; }
+
+    /* Tooltip */
+    #tooltip {
+      position: absolute;
+      display: none;
+      background: #1e293b;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 12px;
+      color: #fff;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      pointer-events: none;
+      z-index: 1000;
+      white-space: nowrap;
+    }
+
+    /* Chaos Modal */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(4px);
+      z-index: 2000;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+    }
+    .modal-backdrop.active { display: flex; }
+    .modal {
+      background: #111827;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      max-width: 520px;
+      width: 100%;
+      padding: 24px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+    }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .modal-title { font-size: 18px; font-weight: 700; color: #fff; }
+    .modal-close { background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; }
+    .form-group { margin-bottom: 14px; }
+    .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; }
+    .form-control {
+      width: 100%;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 13px;
+      color: #fff;
+      outline: none;
+    }
+    .form-control:focus { border-color: var(--primary); }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   </style>
 </head>
 <body>
-  <header>
-    <div>
-      <h1>🦀 Ratus Dashboard</h1>
-      <div class="status-summary" id="status-summary">Loading health metrics...</div>
-    </div>
-    <div id="uptime-overall" style="font-size: 14px; font-weight: 600; color: var(--primary);"></div>
-  </header>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <span class="brand-icon">🦀</span>
+        <div>
+          <h1>Ratus Dashboard</h1>
+          <div style="font-size: 12px; color: var(--text-muted);">High-Performance Pure Rust Service Health Monitor</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-chaos" onclick="openChaosModal()">🌪️ Chaos Lab</button>
+        <button class="btn" id="refresh-btn" onclick="manualRefresh()">🔄 <span id="refresh-timer">5s</span></button>
+      </div>
+    </header>
 
-  <main class="grid" id="endpoints-grid">
-    <!-- Populated dynamically -->
-  </main>
+    <!-- Global Hero Health Status -->
+    <div class="hero-banner" id="hero-banner">
+      <div class="hero-status">
+        <div class="beacon" id="hero-beacon"></div>
+        <div>
+          <div class="hero-title" id="hero-title">All Systems Operational</div>
+          <div class="hero-subtitle" id="hero-subtitle">Aggregating real-time endpoint telemetry...</div>
+        </div>
+      </div>
+      <div class="hero-metrics">
+        <div class="metric-box">
+          <div class="metric-val" id="metric-uptime">100%</div>
+          <div class="metric-lbl">Overall Uptime</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-val" id="metric-latency">0 ms</div>
+          <div class="metric-lbl">Avg Response Time</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-val" id="metric-count">0 / 0</div>
+          <div class="metric-lbl">Active Services</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filter & Search Controls -->
+    <div class="controls">
+      <div class="group-pills" id="group-pills">
+        <div class="pill active" onclick="filterGroup('all')">All Groups</div>
+      </div>
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" class="search-input" id="search-input" placeholder="Filter endpoints..." oninput="applyFilters()">
+      </div>
+    </div>
+
+    <!-- Main Endpoint Cards Grid -->
+    <main class="grid" id="endpoints-grid">
+      <!-- Dynamically populated -->
+    </main>
+  </div>
+
+  <!-- Interactive Floating Tooltip -->
+  <div id="tooltip"></div>
+
+  <!-- Chaos Lab Modal -->
+  <div class="modal-backdrop" id="chaos-modal" onclick="if(event.target === this) closeChaosModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">🌪️ Embedded Chaos Lab</div>
+        <button class="modal-close" onclick="closeChaosModal()">&times;</button>
+      </div>
+      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+        Inject transient faults, synthetic latency, or error statuses directly into probe runs to verify resilience and automated incident recovery.
+      </p>
+      <form id="chaos-form" onsubmit="submitChaos(event)">
+        <div class="form-group">
+          <label class="form-label">Target Endpoint Key</label>
+          <input type="text" class="form-control" id="chaos-endpoint" placeholder="e.g. core_api or *" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Injected Latency (ms)</label>
+            <input type="number" class="form-control" id="chaos-latency" value="250" min="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Force HTTP Status</label>
+            <input type="number" class="form-control" id="chaos-status" placeholder="e.g. 503" min="100" max="599">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Auto-Recover Limit (hits)</label>
+            <input type="number" class="form-control" id="chaos-limit" placeholder="e.g. 3" min="1">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Error Message</label>
+            <input type="text" class="form-control" id="chaos-error" placeholder="Simulated Outage">
+          </div>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-top: 20px;">
+          <button type="button" class="btn" style="color: var(--danger);" onclick="resetChaos()">Flush All Chaos</button>
+          <button type="submit" class="btn btn-primary">Inject Rule</button>
+        </div>
+      </form>
+      <div id="active-chaos-rules" style="margin-top: 20px; font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 14px;">
+        Loading active rules...
+      </div>
+    </div>
+  </div>
 
   <script>
-    async function refreshStatus() {
+    let allEndpoints = [];
+    let selectedGroup = 'all';
+    let searchQuery = '';
+    let countdown = 5;
+    let timerInterval = null;
+
+    async function fetchStatus() {
       try {
         const resp = await fetch('/api/v1/endpoints/statuses');
         if (!resp.ok) return;
-        const endpoints = await resp.json();
-        renderEndpoints(endpoints);
+        allEndpoints = await resp.json();
+        updateGroupPills();
+        renderDashboard();
       } catch (e) {
         console.error("Failed to load status:", e);
       }
     }
 
-    function renderEndpoints(endpoints) {
-      const grid = document.getElementById('endpoints-grid');
-      let totalUp = 0;
+    function updateGroupPills() {
+      const groups = new Set();
+      allEndpoints.forEach(ep => { if (ep.group) groups.add(ep.group); });
+      const pillsContainer = document.getElementById('group-pills');
+      
+      let html = `<div class="pill ${selectedGroup === 'all' ? 'active' : ''}" onclick="filterGroup('all')">All (${allEndpoints.length})</div>`;
+      groups.forEach(g => {
+        const count = allEndpoints.filter(e => e.group === g).length;
+        html += `<div class="pill ${selectedGroup === g ? 'active' : ''}" onclick="filterGroup('${g}')">${g} (${count})</div>`;
+      });
+      pillsContainer.innerHTML = html;
+    }
 
-      grid.innerHTML = endpoints.map(ep => {
+    function filterGroup(group) {
+      selectedGroup = group;
+      updateGroupPills();
+      renderDashboard();
+    }
+
+    function applyFilters() {
+      searchQuery = document.getElementById('search-input').value.toLowerCase();
+      renderDashboard();
+    }
+
+    function generateSparkline(results) {
+      if (!results || results.length < 2) return '';
+      const durations = results.slice(-20).map(r => parseFloat(r.duration) || 0);
+      const min = Math.min(...durations);
+      const max = Math.max(...durations) || 1;
+      const range = max - min || 1;
+      const width = 120;
+      const height = 24;
+
+      const points = durations.map((d, i) => {
+        const x = (i / (durations.length - 1)) * width;
+        const y = height - ((d - min) / range) * (height - 4) - 2;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(' ');
+
+      return `
+        <div class="sparkline-wrapper">
+          <svg class="sparkline-svg" viewBox="0 0 ${width} ${height}">
+            <polyline fill="none" stroke="rgba(56, 189, 248, 0.85)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="${points}" />
+          </svg>
+          <div class="sparkline-stats">${durations[durations.length - 1].toFixed(0)} ms<br><span style="font-size: 9px; opacity: 0.7;">${min.toFixed(0)}-${max.toFixed(0)}ms</span></div>
+        </div>
+      `;
+    }
+
+    function renderDashboard() {
+      const filtered = allEndpoints.filter(ep => {
+        const matchesGroup = selectedGroup === 'all' || ep.group === selectedGroup;
+        const matchesSearch = !searchQuery || 
+          ep.name.toLowerCase().includes(searchQuery) || 
+          (ep.group && ep.group.toLowerCase().includes(searchQuery)) ||
+          ep.key.toLowerCase().includes(searchQuery);
+        return matchesGroup && matchesSearch;
+      });
+
+      let totalSuccesses = 0;
+      let totalResults = 0;
+      let totalDuration = 0;
+      let upCount = 0;
+
+      allEndpoints.forEach(ep => {
+        const results = ep.results || [];
+        if (results.length > 0) {
+          const last = results[results.length - 1];
+          if (last.success) upCount++;
+          results.forEach(r => {
+            if (r.success) totalSuccesses++;
+            totalResults++;
+            totalDuration += (parseFloat(r.duration) || 0);
+          });
+        }
+      });
+
+      const overallUptime = totalResults > 0 ? ((totalSuccesses / totalResults) * 100).toFixed(2) : "100.00";
+      const overallLatency = totalResults > 0 ? (totalDuration / totalResults).toFixed(1) : "0.0";
+      const allUp = upCount === allEndpoints.length && allEndpoints.length > 0;
+
+      // Update Hero
+      document.getElementById('metric-uptime').innerText = `${overallUptime}%`;
+      document.getElementById('metric-latency').innerText = `${overallLatency} ms`;
+      document.getElementById('metric-count').innerText = `${upCount} / ${allEndpoints.length}`;
+      document.getElementById('hero-title').innerText = allUp ? "All Systems Operational" : `${allEndpoints.length - upCount} Services Disrupted`;
+      document.getElementById('hero-subtitle').innerText = `${allEndpoints.length} endpoints monitored across ${new Set(allEndpoints.map(e => e.group || 'default')).size} groups`;
+      
+      const beacon = document.getElementById('hero-beacon');
+      if (allUp) {
+        beacon.className = "beacon";
+      } else {
+        beacon.className = "beacon beacon-down";
+      }
+
+      // Render Grid
+      const grid = document.getElementById('endpoints-grid');
+      if (filtered.length === 0) {
+        grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 48px; color: var(--text-muted);">No endpoints matching current filter.</div>`;
+        return;
+      }
+
+      grid.innerHTML = filtered.map(ep => {
         const results = ep.results || [];
         const isUp = results.length > 0 ? results[results.length - 1].success : true;
-        if (isUp) totalUp++;
-
         const successes = results.filter(r => r.success).length;
         const uptime = results.length > 0 ? ((successes / results.length) * 100).toFixed(1) : "100.0";
-        const avgDuration = results.length > 0 
-          ? (results.reduce((acc, r) => acc + (parseFloat(r.duration) || 0), 0) / results.length).toFixed(0) 
-          : "0";
+        const latestDuration = results.length > 0 ? (parseFloat(results[results.length - 1].duration) || 0).toFixed(0) : "0";
 
-        const segmentsHtml = results.slice(-30).map(r => 
-          `<div class="status-segment ${r.success ? 'seg-up' : 'seg-down'}" title="${r.timestamp} - ${r.status_code}"></div>`
-        ).join('');
+        const sparkline = generateSparkline(results);
+
+        const segmentsHtml = results.slice(-30).map(r => {
+          const cls = r.success ? 'seg-up' : 'seg-down';
+          const payload = encodeURIComponent(JSON.stringify(r));
+          return `<div class="status-segment ${cls}" data-info="${payload}" onmouseenter="showTooltip(event, this)" onmouseleave="hideTooltip()"></div>`;
+        }).join('');
 
         return `
           <div class="card">
-            <div class="card-header">
-              <div>
-                <div class="endpoint-group">${ep.group || 'Default'}</div>
-                <div class="endpoint-name">${ep.name}</div>
+            <div>
+              <div class="card-header">
+                <div>
+                  <div class="endpoint-group">${ep.group || 'Default'}</div>
+                  <div class="endpoint-name">${ep.name}</div>
+                </div>
+                <span class="badge ${isUp ? 'badge-up' : 'badge-down'}">${isUp ? 'Operational' : 'Incident'}</span>
               </div>
-              <span class="badge ${isUp ? 'badge-up' : 'badge-down'}">${isUp ? 'OPERATIONAL' : 'DEGRADED'}</span>
+              ${sparkline}
+              <div class="status-bar">${segmentsHtml}</div>
             </div>
-            <div class="status-bar">${segmentsHtml}</div>
             <div class="card-footer">
-              <span>Uptime: <span class="val">${uptime}%</span></span>
-              <span>Avg Latency: <span class="val">${avgDuration} ms</span></span>
+              <div class="footer-left">
+                <span>Uptime: <span class="val">${uptime}%</span></span>
+                <span>Latency: <span class="val">${latestDuration} ms</span></span>
+              </div>
+              <a href="/api/v1/endpoints/${ep.key}/badge.svg" target="_blank" class="badge-link" title="Open live SVG badge">SVG Badge ↗</a>
             </div>
           </div>
         `;
       }).join('');
-
-      document.getElementById('status-summary').innerText = 
-        `${totalUp} of ${endpoints.length} services operational · Auto-refresh active`;
     }
 
-    refreshStatus();
-    setInterval(refreshStatus, 5000);
+    // Tooltip logic
+    const tooltip = document.getElementById('tooltip');
+    function showTooltip(e, el) {
+      const data = JSON.parse(decodeURIComponent(el.getAttribute('data-info')));
+      const date = new Date(data.timestamp).toLocaleTimeString();
+      const statusText = data.success ? `<span style="color: var(--success); font-weight: 600;">SUCCESS</span>` : `<span style="color: var(--danger); font-weight: 600;">FAILURE</span>`;
+      const codeText = data.status_code ? `HTTP ${data.status_code}` : 'Exit/Connect';
+      const durText = `${data.duration} ms`;
+      const errText = data.errors && data.errors.length > 0 ? `<div style="color: #f87171; margin-top: 4px; font-size: 11px;">⚠️ ${data.errors.join(', ')}</div>` : '';
+
+      tooltip.innerHTML = `
+        <div style="font-weight: 600; margin-bottom: 2px;">${statusText} · ${codeText} (${durText})</div>
+        <div style="color: var(--text-muted); font-size: 11px;">${date}</div>
+        ${errText}
+      `;
+      tooltip.style.display = 'block';
+      const rect = el.getBoundingClientRect();
+      tooltip.style.left = `${rect.left + window.scrollX - 40}px`;
+      tooltip.style.top = `${rect.top + window.scrollY - 55}px`;
+    }
+
+    function hideTooltip() {
+      tooltip.style.display = 'none';
+    }
+
+    // Timer & Refresh logic
+    function startTimer() {
+      clearInterval(timerInterval);
+      countdown = 5;
+      document.getElementById('refresh-timer').innerText = `${countdown}s`;
+      timerInterval = setInterval(() => {
+        countdown--;
+        if (countdown <= 0) {
+          fetchStatus();
+          countdown = 5;
+        }
+        document.getElementById('refresh-timer').innerText = `${countdown}s`;
+      }, 1000);
+    }
+
+    function manualRefresh() {
+      fetchStatus();
+      startTimer();
+    }
+
+    // Chaos Lab Modal Logic
+    function openChaosModal() {
+      document.getElementById('chaos-modal').classList.add('active');
+      loadChaosRules();
+    }
+    function closeChaosModal() {
+      document.getElementById('chaos-modal').classList.remove('active');
+    }
+    async function loadChaosRules() {
+      try {
+        const resp = await fetch('/_ratus/chaos/rules');
+        const rules = await resp.json();
+        const container = document.getElementById('active-chaos-rules');
+        if (rules.length === 0) {
+          container.innerHTML = "No active chaos rules registered.";
+        } else {
+          container.innerHTML = `<b style="color:#fff;">Active Simulation Rules (${rules.length}):</b><br>` + 
+            rules.map(r => `• <b>${r.endpoint_key}</b>: latency=${r.latency_ms}ms, status=${r.force_status || 'N/A'}, limit=${r.limit_times || '∞'} (fired: ${r.times_fired})`).join('<br>');
+        }
+      } catch (e) {
+        console.error("Failed to load chaos rules:", e);
+      }
+    }
+    async function submitChaos(e) {
+      e.preventDefault();
+      const endpoint = document.getElementById('chaos-endpoint').value.trim();
+      const latency = parseInt(document.getElementById('chaos-latency').value) || 0;
+      const statusVal = document.getElementById('chaos-status').value;
+      const status = statusVal ? parseInt(statusVal) : null;
+      const limitVal = document.getElementById('chaos-limit').value;
+      const limit = limitVal ? parseInt(limitVal) : null;
+      const errorVal = document.getElementById('chaos-error').value.trim();
+      const error = errorVal ? errorVal : null;
+
+      const payload = {
+        endpoint_key: endpoint,
+        latency_ms: latency,
+        force_status: status,
+        limit_times: limit,
+        force_error: error
+      };
+
+      try {
+        const resp = await fetch('/_ratus/chaos/inject', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (resp.ok) {
+          loadChaosRules();
+          manualRefresh();
+        }
+      } catch (err) {
+        alert("Failed to inject chaos: " + err);
+      }
+    }
+    async function resetChaos() {
+      if (!confirm("Are you sure you want to flush all active chaos rules?")) return;
+      try {
+        await fetch('/_ratus/chaos/reset', { method: 'POST' });
+        loadChaosRules();
+        manualRefresh();
+      } catch (err) {
+        alert("Failed to reset chaos: " + err);
+      }
+    }
+
+    // Initialize
+    fetchStatus();
+    startTimer();
   </script>
 </body>
 </html>

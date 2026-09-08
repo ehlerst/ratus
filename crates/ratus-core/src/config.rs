@@ -26,6 +26,10 @@ pub struct Config {
     #[serde(default)]
     pub storage: Option<StorageConfig>,
 
+    /// OpenTelemetry metrics export configuration.
+    #[serde(default)]
+    pub otel: Option<OtelConfig>,
+
     /// Security and authentication settings.
     #[serde(default)]
     pub security: Option<SecurityConfig>,
@@ -324,6 +328,50 @@ pub struct StorageConfig {
     /// Storage database file path or connection string.
     #[serde(default)]
     pub path: Option<String>,
+}
+
+/// OpenTelemetry metric output configuration.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct OtelConfig {
+    /// Whether OpenTelemetry metric export is enabled.
+    #[serde(default)]
+    pub enabled: bool,
+
+    /// Optional OTLP HTTP collector push endpoint (e.g. "http://localhost:4318/v1/metrics").
+    #[serde(default)]
+    pub endpoint: Option<String>,
+
+    /// Service name attribute reported in resource attributes (defaults to "ratus").
+    #[serde(default = "default_otel_service_name")]
+    pub service_name: String,
+
+    /// Export interval. Defaults to 30 seconds.
+    #[serde(
+        default = "default_otel_interval",
+        deserialize_with = "deserialize_duration",
+        serialize_with = "serialize_duration"
+    )]
+    pub interval: Duration,
+}
+
+fn default_otel_service_name() -> String {
+    "ratus".to_string()
+}
+
+fn default_otel_interval() -> Duration {
+    Duration::from_secs(30)
+}
+
+impl Default for OtelConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            endpoint: None,
+            service_name: default_otel_service_name(),
+            interval: default_otel_interval(),
+        }
+    }
 }
 
 /// Security and authentication configuration.

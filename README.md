@@ -118,6 +118,8 @@ ratus chaos reset
 | `/` | `GET` | Single-file embedded dark-mode dashboard (zero NPM dependencies) |
 | `/health` | `GET` | Daemon healthcheck (`{"status":"UP"}`) |
 | `/metrics` | `GET` | Standard Prometheus metric telemetry |
+| `/v1/metrics` | `GET` | Standard OpenTelemetry (OTLP/HTTP JSON) metric telemetry |
+| `/_ratus/otel/metrics` | `GET` | OpenTelemetry OTLP metrics endpoint alias |
 | `/api/v1/endpoints/statuses` | `GET` | Full status array with historical results and uptime |
 | `/api/v1/endpoints/{key}/statuses` | `GET` | Status details for a specific endpoint |
 | `/api/v1/endpoints/{key}/badge.svg` | `GET` | Micro-second dynamic SVG badge generation |
@@ -131,11 +133,36 @@ ratus chaos reset
 
 ---
 
+## 📡 Multi-Protocol Probe Capabilities
+
+Ratus extends probing capabilities with native high-efficiency async protocol engines:
+
+| Protocol Scheme | Example Target | Prober Description |
+| :--- | :--- | :--- |
+| **HTTP / HTTPS** | `https://example.com/api` | Fast async HTTP/1.1 & HTTP/2 with custom body, headers, and certificates |
+| **TCP** | `tcp://db.internal:5432` | Raw socket connection establishing timing and availability |
+| **DNS** | `dns://8.8.8.8:53` | Direct DNS query resolution for `A`, `AAAA`, `CNAME`, `MX`, `TXT` |
+| **WebSocket** | `ws://gateway:8080/feed` | RFC 6455 HTTP 101 upgrade handshake, ping-pong timing and socket health |
+| **gRPC** | `grpc://auth-service:50051` | Standard `grpc.health.v1.Health/Check` protocol verification |
+| **ICMP / Ping** | `ping://gateway.internal` | Network echo latency and host connectivity verification |
+
+---
+
 ## ⚙️ Configuration Reference
 
-Ratus supports 100% drop-in syntax with Gatus `config.yaml`:
+Ratus supports 100% drop-in syntax with Gatus `config.yaml`, plus OpenTelemetry extensions:
 
 ```yaml
+# Prometheus metrics export
+metrics: true
+
+# Optional OpenTelemetry (OTLP) metrics push exporter
+otel:
+  enabled: true
+  endpoint: "http://otel-collector:4318/v1/metrics"
+  service-name: "ratus"
+  interval: 30s
+
 # Optional HTTP Basic Authentication
 security:
   basic:

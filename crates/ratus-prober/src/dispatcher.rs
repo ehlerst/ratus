@@ -2,8 +2,11 @@
 
 use crate::chaos::ChaosEngine;
 use crate::dns::DnsProber;
+use crate::grpc::GrpcProber;
 use crate::http::HttpProber;
+use crate::icmp::IcmpProber;
 use crate::tcp::TcpProber;
+use crate::websocket::WebSocketProber;
 use ratus_core::config::EndpointConfig;
 use ratus_core::models::EndpointResult;
 use std::sync::Arc;
@@ -14,6 +17,9 @@ pub struct ProbeDispatcher {
     http: Arc<HttpProber>,
     tcp: Arc<TcpProber>,
     dns: Arc<DnsProber>,
+    websocket: Arc<WebSocketProber>,
+    grpc: Arc<GrpcProber>,
+    icmp: Arc<IcmpProber>,
     chaos: Arc<ChaosEngine>,
 }
 
@@ -30,6 +36,9 @@ impl ProbeDispatcher {
             http: Arc::new(HttpProber::new()),
             tcp: Arc::new(TcpProber::new()),
             dns: Arc::new(DnsProber::new()),
+            websocket: Arc::new(WebSocketProber::new()),
+            grpc: Arc::new(GrpcProber::new()),
+            icmp: Arc::new(IcmpProber::new()),
             chaos: Arc::new(ChaosEngine::new()),
         }
     }
@@ -55,6 +64,12 @@ impl ProbeDispatcher {
                 self.tcp.probe(endpoint).await
             } else if lower.starts_with("dns://") {
                 self.dns.probe(endpoint).await
+            } else if lower.starts_with("ws://") || lower.starts_with("wss://") {
+                self.websocket.probe(endpoint).await
+            } else if lower.starts_with("grpc://") || lower.starts_with("grpcs://") {
+                self.grpc.probe(endpoint).await
+            } else if lower.starts_with("icmp://") || lower.starts_with("ping://") {
+                self.icmp.probe(endpoint).await
             } else {
                 self.http.probe(endpoint).await
             }

@@ -2,8 +2,8 @@
 
 use crate::api::{
     dump_state, get_all_statuses, get_chaos_rules, get_endpoint_badge, get_endpoint_status,
-    get_metrics, health, inject_chaos_rule, load_state, push_external_result, reset_chaos_rules,
-    reset_state, serve_ui, AppState,
+    get_metrics, get_otel_metrics, health, inject_chaos_rule, load_state, push_external_result,
+    reset_chaos_rules, reset_state, serve_ui, AppState,
 };
 use axum::extract::Request;
 use axum::http::header::{AUTHORIZATION, WWW_AUTHENTICATE};
@@ -77,6 +77,8 @@ pub fn create_router_with_options(
         .route("/", get(serve_ui))
         .route("/health", get(health))
         .route("/metrics", get(get_metrics))
+        .route("/v1/metrics", get(get_otel_metrics))
+        .route("/_ratus/otel/metrics", get(get_otel_metrics))
         // Gatus v1 Endpoints API
         .route("/api/v1/endpoints/statuses", get(get_all_statuses))
         .route("/api/v1/endpoints/{key}/statuses", get(get_endpoint_status))

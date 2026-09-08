@@ -321,3 +321,83 @@ async fn test_chaos_api_endpoints() {
     let rules: Vec<ChaosRule> = serde_json::from_slice(&bytes).unwrap();
     assert!(rules.is_empty());
 }
+
+#[tokio::test]
+async fn test_otel_metrics_endpoint() {
+    use ratus_core::config::EndpointConfig;
+    use ratus_core::models::EndpointResult;
+    use ratus_server::create_router;
+
+    let storage = Arc::new(MemoryStorage::new(50));
+    let endpoint = EndpointConfig {
+        name: "otel-service".to_string(),
+        group: Some("telemetry".to_string()),
+        url: Some("https://example.com".to_string()),
+        method: "GET".to_string(),
+        body: None,
+        headers: None,
+        interval: Duration::from_secs(30),
+        conditions: vec!["[STATUS] == 200".to_string()],
+        alerts: None,
+        client: None,
+        ui: None,
+        dns: None,
+        ssh: None,
+        enabled: true,
+    };
+
+    storage.save_result(
+        &endpoint,
+        EndpointResult::success(200, Duration::from_millis(42)),
+    );
+
+    let app = create_router(storage);
+
+    // 1. GET /v1/metrics (Standard OTLP/HTTP JSON)
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/v1/metrics")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(
+        resp.headers().get("content-type").unwrap(),
+        "application/json"
+    );
+
+    let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+    let otlp_json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+
+    // Verify OTLP schema structure
+    let resource_metrics = otlp_json["resourceMetrics"].as_array().unwrap();
+    assert!(!resource_metrics.is_empty());
+
+    let scope_metrics = resource_metrics[0]["scopeMetrics"].as_array().unwrap();
+    assert!(!scope_metrics.is_empty());
+
+    let metrics = scope_metrics[0]["metrics"].as_array().unwrap();
+    let metric_names: Vec<&str> = metrics.iter().filter_map(|m| m["name"].as_str()).collect();
+
+    assert!(metric_names.contains(&"ratus.endpoint.status"));
+    assert!(metric_names.contains(&"ratus.endpoint.duration_ms"));
+    assert!(metric_names.contains(&"ratus.endpoint.uptime_percentage"));
+
+    // 2. GET /_ratus/otel/metrics alias
+    let resp_alias = app
+        .oneshot(
+            Request::builder()
+                .uri("/_ratus/otel/metrics")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp_alias.status(), StatusCode::OK);
+}

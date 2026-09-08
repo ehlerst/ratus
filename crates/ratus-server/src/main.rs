@@ -256,6 +256,38 @@ async fn main() -> ExitCode {
             let scheduler = Scheduler::new(event_tx).with_chaos(chaos.clone());
             scheduler.start(&cfg);
 
+            // Optional OpenTelemetry (OTLP/HTTP) background push exporter
+            let otel_cfg = cfg.otel.clone().unwrap_or_default();
+            let otel_endpoint = otel_cfg
+                .endpoint
+                .or_else(|| std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT").ok());
+
+            if (otel_cfg.enabled || otel_endpoint.is_some()) && otel_endpoint.is_some() {
+                if let Some(endpoint_url) = otel_endpoint {
+                    let otel_storage = storage.clone();
+                    let service_name = otel_cfg.service_name;
+                    let push_interval = otel_cfg.interval;
+                    info!(
+                        "Starting OpenTelemetry OTLP background push exporter to '{endpoint_url}' (interval: {push_interval:?})..."
+                    );
+                    tokio::spawn(async move {
+                        let client = reqwest::Client::new();
+                        loop {
+                            tokio::time::sleep(push_interval).await;
+                            let payload = ratus_server::api::generate_otlp_metrics(
+                                &otel_storage,
+                                &service_name,
+                            );
+                            if let Err(e) = client.post(&endpoint_url).json(&payload).send().await {
+                                tracing::warn!(
+                                    "Failed to push OTLP metrics to '{endpoint_url}': {e}"
+                                );
+                            }
+                        }
+                    });
+                }
+            }
+
             let bind_port = port.unwrap_or(8080);
             let addr = format!("0.0.0.0:{bind_port}");
             info!("Binding HTTP server on {addr}...");
