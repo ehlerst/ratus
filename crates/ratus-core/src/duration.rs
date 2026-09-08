@@ -40,6 +40,7 @@ pub fn parse_duration(input: &str) -> Result<Duration, String> {
 }
 
 /// Format a duration as a compact human-readable string (e.g. "30s", "5m").
+#[allow(clippy::manual_is_multiple_of)]
 pub fn format_duration(dur: Duration) -> String {
     let total_secs = dur.as_secs();
     let millis = dur.subsec_millis();
