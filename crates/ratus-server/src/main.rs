@@ -1,9 +1,16 @@
-//! Ratus binary CLI entrypoint.
+//! Ratus binary CLI and daemon entrypoint.
 
 use clap::{Parser, Subcommand};
+use ratus_alert::AlertDispatcher;
 use ratus_core::Config;
+use ratus_prober::{ProbeDispatcher, ProbeEvent, Scheduler};
+use ratus_server::create_router;
+use ratus_storage::MemoryStorage;
 use std::path::PathBuf;
 use std::process::ExitCode;
+use std::sync::Arc;
+use tokio::net::TcpListener;
+use tokio::sync::mpsc;
 use tracing::{error, info};
 
 #[derive(Parser, Debug)]
@@ -18,14 +25,24 @@ enum Commands {
     /// Validate configuration file syntax, environment variables, and semantic consistency
     Validate {
         /// Path to the configuration YAML file
-        #[arg(short = 'c', long = "config", default_value = "config.yaml")]
+        #[arg(
+            short = 'c',
+            long = "config",
+            default_value = "config.yaml",
+            env = "RATUS_CONFIG_PATH"
+        )]
         config: PathBuf,
     },
 
     /// Start the Ratus monitoring daemon and web dashboard
     Start {
         /// Path to the configuration YAML file
-        #[arg(short = 'c', long = "config", default_value = "config.yaml")]
+        #[arg(
+            short = 'c',
+            long = "config",
+            default_value = "config.yaml",
+            env = "RATUS_CONFIG_PATH"
+        )]
         config: PathBuf,
 
         /// Port to bind the HTTP dashboard and metrics server
@@ -38,6 +55,47 @@ enum Commands {
         /// URL or host target to probe
         target: String,
     },
+
+    /// Manage or inspect Ratus server state (atomic export, reset, or load)
+    State {
+        #[command(subcommand)]
+        action: StateAction,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum StateAction {
+    /// Export atomic JSON snapshot of server state
+    Dump {
+        /// Base URL of Ratus server
+        #[arg(long, default_value = "http://127.0.0.1:8080")]
+        url: String,
+    },
+    /// Reset in-memory buffers and alert states
+    Reset {
+        /// Base URL of Ratus server
+        #[arg(long, default_value = "http://127.0.0.1:8080")]
+        url: String,
+    },
+    /// Load JSON snapshot into running server
+    Load {
+        /// Path to JSON state file
+        #[arg(short = 'f', long = "file")]
+        file: PathBuf,
+
+        /// Base URL of Ratus server
+        #[arg(long, default_value = "http://127.0.0.1:8080")]
+        url: String,
+    },
+}
+
+fn resolve_config_path(config: PathBuf) -> PathBuf {
+    if config == std::path::Path::new("config.yaml") {
+        if let Ok(p) = std::env::var("GATUS_CONFIG_PATH") {
+            return PathBuf::from(p);
+        }
+    }
+    config
 }
 
 #[tokio::main]
@@ -48,6 +106,7 @@ async fn main() -> ExitCode {
 
     match cli.command {
         Commands::Validate { config } => {
+            let config = resolve_config_path(config);
             info!("Validating configuration from '{}'...", config.display());
             match Config::from_file(&config) {
                 Ok(cfg) => {
@@ -65,6 +124,7 @@ async fn main() -> ExitCode {
             }
         }
         Commands::Start { config, port } => {
+            let config = resolve_config_path(config);
             info!("Loading configuration from '{}'...", config.display());
             let cfg = match Config::from_file(&config) {
                 Ok(c) => c,
@@ -73,16 +133,159 @@ async fn main() -> ExitCode {
                     return ExitCode::FAILURE;
                 }
             };
+
+            let storage = Arc::new(MemoryStorage::default());
+            let alerting_cfg = cfg.alerting.clone().unwrap_or_default();
+            let alert_dispatcher = AlertDispatcher::new(alerting_cfg);
+
+            // Channel for probe result events
+            let (event_tx, mut event_rx) = mpsc::channel::<ProbeEvent>(1000);
+
+            // Background event loop routing probe outcomes to storage and alerting
+            let loop_storage = storage.clone();
+            let loop_alerts = alert_dispatcher.clone();
+            tokio::spawn(async move {
+                while let Some(event) = event_rx.recv().await {
+                    loop_storage.save_result(&event.endpoint, event.result.clone());
+                    loop_alerts
+                        .process_result(&event.endpoint, &event.result)
+                        .await;
+                }
+            });
+
+            // Start periodic probe scheduler
+            let scheduler = Scheduler::new(event_tx);
+            scheduler.start(&cfg);
+
             let bind_port = port.unwrap_or(8080);
-            println!(
-                "Starting Ratus daemon on port {bind_port} with {} endpoints...",
-                cfg.endpoints.len()
-            );
-            ExitCode::SUCCESS
+            let addr = format!("0.0.0.0:{bind_port}");
+            info!("Binding HTTP server on {addr}...");
+
+            let router = create_router(storage);
+            let listener = match TcpListener::bind(&addr).await {
+                Ok(l) => l,
+                Err(e) => {
+                    eprintln!("Failed to bind port {bind_port}: {e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+
+            println!("🦀 Ratus is operational at http://{addr}");
+            if let Err(e) = axum::serve(listener, router).await {
+                eprintln!("Server error: {e}");
+                ExitCode::FAILURE
+            } else {
+                ExitCode::SUCCESS
+            }
         }
         Commands::Check { target } => {
             println!("Probing target: {target}...");
-            ExitCode::SUCCESS
+            let dummy_ep = ratus_core::config::EndpointConfig {
+                name: "adhoc-check".to_string(),
+                group: None,
+                url: Some(target.clone()),
+                method: "GET".to_string(),
+                body: None,
+                headers: None,
+                interval: std::time::Duration::from_secs(30),
+                conditions: vec!["[STATUS] == 200".to_string()],
+                alerts: None,
+                client: None,
+                ui: None,
+                dns: None,
+                ssh: None,
+                enabled: true,
+            };
+
+            let dispatcher = ProbeDispatcher::new();
+            let result = dispatcher.probe(&dummy_ep).await;
+
+            println!(
+                "Probe result: success={}, status_code={}, duration={:?}",
+                result.success, result.status_code, result.duration
+            );
+            if result.success {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::FAILURE
+            }
+        }
+        Commands::State { action } => {
+            let client = reqwest::Client::new();
+            match action {
+                StateAction::Dump { url } => {
+                    let endpoint = format!("{}/_ratus/state/dump", url.trim_end_matches('/'));
+                    match client.get(&endpoint).send().await {
+                        Ok(resp) => {
+                            if resp.status().is_success() {
+                                let body = resp.text().await.unwrap_or_default();
+                                println!("{body}");
+                                ExitCode::SUCCESS
+                            } else {
+                                eprintln!("Failed to dump state: HTTP {}", resp.status());
+                                ExitCode::FAILURE
+                            }
+                        }
+                        Err(err) => {
+                            eprintln!("Error connecting to Ratus server: {err}");
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
+                StateAction::Reset { url } => {
+                    let endpoint = format!("{}/_ratus/state/reset", url.trim_end_matches('/'));
+                    match client.post(&endpoint).send().await {
+                        Ok(resp) => {
+                            if resp.status().is_success() {
+                                println!("Ratus state successfully reset.");
+                                ExitCode::SUCCESS
+                            } else {
+                                eprintln!("Failed to reset state: HTTP {}", resp.status());
+                                ExitCode::FAILURE
+                            }
+                        }
+                        Err(err) => {
+                            eprintln!("Error connecting to Ratus server: {err}");
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
+                StateAction::Load { file, url } => {
+                    let content = match std::fs::read_to_string(&file) {
+                        Ok(c) => c,
+                        Err(err) => {
+                            eprintln!("Failed to read state file '{}': {err}", file.display());
+                            return ExitCode::FAILURE;
+                        }
+                    };
+                    let parsed: serde_json::Value = match serde_json::from_str(&content) {
+                        Ok(p) => p,
+                        Err(err) => {
+                            eprintln!("State file is not valid JSON: {err}");
+                            return ExitCode::FAILURE;
+                        }
+                    };
+                    let endpoint = format!("{}/_ratus/state/load", url.trim_end_matches('/'));
+                    match client.post(&endpoint).json(&parsed).send().await {
+                        Ok(resp) => {
+                            if resp.status().is_success() {
+                                println!(
+                                    "Ratus state successfully loaded from '{}'.",
+                                    file.display()
+                                );
+                                ExitCode::SUCCESS
+                            } else {
+                                eprintln!("Failed to load state: HTTP {}", resp.status());
+                                ExitCode::FAILURE
+                            }
+                        }
+                        Err(err) => {
+                            eprintln!("Error connecting to Ratus server: {err}");
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
+            }
         }
     }
 }

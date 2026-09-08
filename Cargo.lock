@@ -1383,6 +1383,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "wiremock",
 ]
 
 [[package]]
@@ -1390,6 +1391,7 @@ name = "ratus-compat-tests"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "http-body-util",
  "ratus-alert",
  "ratus-core",
  "ratus-eval",
@@ -1440,6 +1442,7 @@ dependencies = [
  "ratus-core",
  "ratus-eval",
  "reqwest",
+ "serde_json",
  "thiserror",
  "tokio",
  "tracing",
@@ -1453,6 +1456,7 @@ dependencies = [
  "anyhow",
  "axum",
  "clap",
+ "http-body-util",
  "ratus-alert",
  "ratus-core",
  "ratus-eval",

@@ -18,3 +18,4 @@ bytes = { workspace = true }
 
 [dev-dependencies]
 wiremock = { workspace = true }
+serde_json = { workspace = true }

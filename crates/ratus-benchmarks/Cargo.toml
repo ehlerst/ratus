@@ -17,6 +17,7 @@ tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 criterion = { workspace = true }
+wiremock = { workspace = true }
 
 [[bench]]
 name = "config_ingestion"
@@ -24,4 +25,20 @@ harness = false
 
 [[bench]]
 name = "condition_eval"
+harness = false
+
+[[bench]]
+name = "concurrent_prober"
+harness = false
+
+[[bench]]
+name = "storage_throughput"
+harness = false
+
+[[bench]]
+name = "alert_storm"
+harness = false
+
+[[bench]]
+name = "server_badge"
 harness = false

@@ -25,10 +25,28 @@
 
 | Condition Type | Go Baseline (Gatus reflection/replace) | Ratus (`ratus-eval` typed AST) | Improvement Factor |
 | :--- | :--- | :--- | :--- |
-| **Scalar Status Check (`[STATUS] == 200`)** | 130.1 ns / op (3 allocs) | **3.46 ns / op (0 allocs)** | **37.6x faster (Zero-alloc)** |
+| **Scalar Status Check (`[STATUS] == 200`)** | 122.8 ns / op (3 allocs) | **3.46 ns / op (0 allocs)** | **35.5x faster (Zero-alloc)** |
 | **Duration Check (`[RESPONSE_TIME] < 250`)** | 145.0 ns / op (3 allocs) | **4.01 ns / op (0 allocs)** | **36.1x faster (Zero-alloc)** |
 | **Substring Check (`has([BODY], "UP")`)** | 185.0 ns / op (4 allocs) | **16.9 ns / op (0 allocs)** | **10.9x faster (Zero-alloc)** |
-| **JSONPath Query (`[BODY].data.code == 42`)** | 1,702.0 ns / op (27 allocs / 1.1 KB) | **177.3 ns / op** | **9.6x faster** |
+| **JSONPath Query (`[BODY].data.code == 42`)** | 1,620.0 ns / op (27 allocs / 1.1 KB) | **177.3 ns / op** | **9.1x faster** |
+
+### Phase 3 & 4: Storage Ingestion & Aggregation Throughput
+
+| Storage Operation | Go Baseline (Mutex + slice) | Ratus (`ratus-storage` circular ring) | Improvement Factor |
+| :--- | :--- | :--- | :--- |
+| **Write Ingestion Throughput** | ~190,000 results / sec | **> 4,430,000 results / sec** (225.6 ns) | **23.3x higher throughput** |
+| **7-Day Rolling Uptime Calculation (10k pts)** | ~380 µs / op | **1.87 µs / op** | **> 200x faster** |
+| **Historical Data Density** | ~128 bytes / point | **16 bytes / point (bit-packed)** | **8x memory density** |
+
+### Phase 5 & 6: Alert Dispatch & HTTP Server Performance
+
+| Metric | Go Baseline (Gatus) | Ratus (Rust + Axum) | Improvement Factor |
+| :--- | :--- | :--- | :--- |
+| **Alert State Evaluation** | ~3,100 ns / eval | **3.07 ns / eval** (> 325M evals/sec) | **> 1,000x faster** |
+| **Template Token Substitution** | ~3,200 ns / op | **587.7 ns / op** (> 1.7M ops/sec) | **5.4x faster** |
+| **SVG Badge Generation** | ~18,500 req / sec | **> 2,180,000 req / sec** (457.2 ns) | **> 100x faster** |
+| **Docker Idle Memory (RSS)** | ~35–50 MiB | **4.82 MiB** | **> 7x less memory** |
+| **Container Image Pull Size** | ~25–30 MB | **10.3 MB** | **> 2.5x smaller** |
 
 ---
 
@@ -38,6 +56,7 @@
 ratus/
 ├── Cargo.toml                  # Workspace root & centralized dependency table
 ├── Cargo.lock                  # Pinned deterministic build lockfile
+├── Dockerfile                  # Multi-stage distroless scratch container
 ├── PLAN.md                     # Comprehensive multi-phase roadmap & benchmark specifications
 ├── README.md                   # Documentation & benchmark matrix
 ├── crates/
@@ -56,30 +75,46 @@ ratus/
 
 ---
 
-## 🚀 Quickstart
+## 🚀 CLI Usage & Commands
 
-### 1. Build and Test
 ```bash
-# Verify compiler discipline (zero warnings allowed)
-RUSTFLAGS="-D warnings" cargo clippy --workspace --all-targets --all-features
-cargo fmt --all -- --check
+# Display help and available commands
+ratus --help
 
-# Run test suite
-cargo test --workspace
+# Validate configuration file syntax and semantics
+ratus validate -c config.yaml
 
-# Build optimized binary
-cargo build --release --bin ratus
+# Start the monitoring daemon and embedded dashboard
+ratus start -c config.yaml -p 8080
+
+# Ad-hoc single probe check of a target URL or socket
+ratus check https://example.com
+
+# Dump in-memory state snapshot as JSON
+ratus state dump --url http://127.0.0.1:8080
+
+# Reset all in-memory buffers and alert counters
+ratus state reset --url http://127.0.0.1:8080
+
+# Load state snapshot into running server
+ratus state load --file state.json --url http://127.0.0.1:8080
 ```
 
-### 2. Validate Configuration
-```bash
-./target/release/ratus validate -c tests/fixtures/sample_config.yaml
-```
+---
 
-### 3. Run Ingestion Benchmarks
-```bash
-cargo bench -p ratus-benchmarks --bench config_ingestion
-```
+## 🌐 API & UI Endpoints
+
+| Endpoint | Method | Description |
+| :--- | :--- | :--- |
+| `/` | `GET` | Single-file embedded dark-mode dashboard (zero NPM dependencies) |
+| `/health` | `GET` | Daemon healthcheck (`{"status":"UP"}`) |
+| `/metrics` | `GET` | Standard Prometheus metric telemetry |
+| `/api/v1/endpoints/statuses` | `GET` | Full status array with historical results and uptime |
+| `/api/v1/endpoints/{key}/statuses` | `GET` | Status details for a specific endpoint |
+| `/api/v1/endpoints/{key}/badge.svg` | `GET` | Micro-second dynamic SVG badge generation |
+| `/_ratus/state/dump` | `GET` | Atomic JSON snapshot of all endpoint states |
+| `/_ratus/state/reset` | `POST` | Atomically reset server storage and alert state |
+| `/_ratus/state/load` | `POST` | Hydrate server state from a JSON snapshot |
 
 ---
 
@@ -87,7 +122,31 @@ cargo bench -p ratus-benchmarks --bench config_ingestion
 
 The official multi-architecture container is published to Docker Hub:
 ```bash
+# Pull image
 docker pull ehlers320/ratus:latest
+
+# Run container with mounted config.yaml
+docker run -d \
+  --name ratus \
+  -p 8080:8080 \
+  -v $(pwd)/config.yaml:/app/config.yaml \
+  ehlers320/ratus:latest
+```
+
+---
+
+## 🧪 Testing & Verification
+
+```bash
+# Strictly enforce zero compiler warnings
+RUSTFLAGS="-D warnings" cargo clippy --workspace --all-targets --all-features
+cargo fmt --all -- --check
+
+# Execute workspace tests (Tier 1)
+cargo test --workspace
+
+# Run head-to-head comparison benchmarks against Go baseline
+bash scripts/run_head_to_head_benchmark.sh
 ```
 
 ---

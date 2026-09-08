@@ -1,7 +1,10 @@
-//! Storage engine for Ratus.
+//! High-performance bounded storage engine for Ratus.
+
 #![deny(missing_docs)]
 #![deny(clippy::all)]
 
-pub mod storage {
-    //! Storage placeholder logic.
-}
+pub mod memory;
+pub mod ring_buffer;
+
+pub use memory::{EndpointState, MemoryStorage, DEFAULT_HISTORY_CAPACITY};
+pub use ring_buffer::RingBuffer;

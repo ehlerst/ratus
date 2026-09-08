@@ -1,0 +1,30 @@
+name: Compare Alternatives (Gatus vs Ratus)
+
+on:
+  schedule:
+    - cron: '0 0 * * 0' # Weekly on Sunday at midnight UTC
+  workflow_dispatch:
+
+jobs:
+  head-to-head:
+    name: Head-to-Head Benchmark Showdown
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Go toolchain
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build Ratus Release Binary
+        run: cargo build --release --bin ratus
+
+      - name: Execute Head-to-Head Benchmarks
+        run: bash scripts/run_head_to_head_benchmark.sh

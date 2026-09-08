@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ratus - Service Health Dashboard</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card-bg: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --text-muted: #8b949e;
+      --success: #2ea043;
+      --danger: #da3633;
+      --warning: #d29922;
+      --primary: #58a6ff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      padding: 24px;
+      line-height: 1.5;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    h1 { font-size: 24px; color: #fff; display: flex; align-items: center; gap: 8px; }
+    .status-summary { font-size: 14px; color: var(--text-muted); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 16px; }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .endpoint-name { font-weight: 600; font-size: 16px; color: #fff; }
+    .endpoint-group { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .badge {
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge-up { background: rgba(46, 160, 67, 0.2); color: #3fb950; border: 1px solid #2ea043; }
+    .badge-down { background: rgba(218, 54, 51, 0.2); color: #f85149; border: 1px solid #da3633; }
+    .status-bar {
+      display: flex;
+      gap: 3px;
+      height: 24px;
+      margin: 12px 0;
+      background: rgba(255,255,255,0.02);
+      padding: 3px;
+      border-radius: 4px;
+    }
+    .status-segment {
+      flex: 1;
+      border-radius: 2px;
+      min-width: 4px;
+    }
+    .seg-up { background: var(--success); }
+    .seg-down { background: var(--danger); }
+    .card-footer {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border);
+      padding-top: 10px;
+    }
+    .val { color: var(--text); font-weight: 500; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>🦀 Ratus Dashboard</h1>
+      <div class="status-summary" id="status-summary">Loading health metrics...</div>
+    </div>
+    <div id="uptime-overall" style="font-size: 14px; font-weight: 600; color: var(--primary);"></div>
+  </header>
+
+  <main class="grid" id="endpoints-grid">
+    <!-- Populated dynamically -->
+  </main>
+
+  <script>
+    async function refreshStatus() {
+      try {
+        const resp = await fetch('/api/v1/endpoints/statuses');
+        if (!resp.ok) return;
+        const endpoints = await resp.json();
+        renderEndpoints(endpoints);
+      } catch (e) {
+        console.error("Failed to load status:", e);
+      }
+    }
+
+    function renderEndpoints(endpoints) {
+      const grid = document.getElementById('endpoints-grid');
+      let totalUp = 0;
+
+      grid.innerHTML = endpoints.map(ep => {
+        const results = ep.results || [];
+        const isUp = results.length > 0 ? results[results.length - 1].success : true;
+        if (isUp) totalUp++;
+
+        const successes = results.filter(r => r.success).length;
+        const uptime = results.length > 0 ? ((successes / results.length) * 100).toFixed(1) : "100.0";
+        const avgDuration = results.length > 0 
+          ? (results.reduce((acc, r) => acc + (parseFloat(r.duration) || 0), 0) / results.length).toFixed(0) 
+          : "0";
+
+        const segmentsHtml = results.slice(-30).map(r => 
+          `<div class="status-segment ${r.success ? 'seg-up' : 'seg-down'}" title="${r.timestamp} - ${r.status_code}"></div>`
+        ).join('');
+
+        return `
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="endpoint-group">${ep.group || 'Default'}</div>
+                <div class="endpoint-name">${ep.name}</div>
+              </div>
+              <span class="badge ${isUp ? 'badge-up' : 'badge-down'}">${isUp ? 'OPERATIONAL' : 'DEGRADED'}</span>
+            </div>
+            <div class="status-bar">${segmentsHtml}</div>
+            <div class="card-footer">
+              <span>Uptime: <span class="val">${uptime}%</span></span>
+              <span>Avg Latency: <span class="val">${avgDuration} ms</span></span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('status-summary').innerText = 
+        `${totalUp} of ${endpoints.length} services operational · Auto-refresh active`;
+    }
+
+    refreshStatus();
+    setInterval(refreshStatus, 5000);
+  </script>
+</body>
+</html>

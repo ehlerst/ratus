@@ -37,11 +37,20 @@ jobs:
             type=ref,event=tag
             type=sha,format=short
 
+      - name: Determine Target Platforms
+        id: platforms
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "target_platforms=linux/amd64,linux/arm64" >> $GITHUB_OUTPUT
+          else
+            echo "target_platforms=linux/amd64" >> $GITHUB_OUTPUT
+          fi
+
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ steps.platforms.outputs.target_platforms }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

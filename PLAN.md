@@ -510,18 +510,16 @@ Runs weekly or on-demand:
 
 ---
 
-## 8. Execution Checklist & Getting Started
-
-To initialize the project according to this plan:
-- [ ] Initialize workspace root `Cargo.toml` with `[workspace.dependencies]`.
-- [ ] Create `crates/` subdirectories (`ratus-core`, `ratus-eval`, `ratus-prober`, `ratus-storage`, `ratus-alert`, `ratus-server`, `ratus-benchmarks`, `ratus-compat-tests`).
-- [ ] Implement Phase 1 configuration schema and parser.
-- [ ] Implement Phase 2 condition parser and AST evaluator.
-- [ ] Implement Phase 3 Tokio prober engine.
-- [ ] Implement Phase 4 in-memory circular ring buffer.
-- [ ] Implement Phase 5 alert dispatcher and provider ecosystem.
-- [ ] Implement Phase 6 Axum server, SVG badge engine, and embedded dashboard.
-- [ ] Implement Phase 7 Testcontainers suites and automated benchmark harness.
-- [ ] Configure GitHub Actions workflows and multi-stage Dockerfile.
-- [ ] Maintainer manually configures `DOCKER_USERNAME` (value: `ehlers320`) and `DOCKER_TOKEN` in GitHub repository secrets for [`ehlers320/ratus`](https://hub.docker.com/repository/docker/ehlers320/ratus/general).
-- [ ] Verify zero Clippy warnings across workspace with `RUSTFLAGS="-D warnings" cargo clippy`.
+## 8. Execution Checklist & Status
+- [x] Initialize workspace root `Cargo.toml` with `[workspace.dependencies]`.
+- [x] Create `crates/` subdirectories (`ratus-core`, `ratus-eval`, `ratus-prober`, `ratus-storage`, `ratus-alert`, `ratus-server`, `ratus-benchmarks`, `ratus-compat-tests`).
+- [x] Implement Phase 1 configuration schema and parser.
+- [x] Implement Phase 2 condition parser and AST evaluator.
+- [x] Implement Phase 3 Tokio prober engine.
+- [x] Implement Phase 4 in-memory circular ring buffer.
+- [x] Implement Phase 5 alert dispatcher and provider ecosystem.
+- [x] Implement Phase 6 Axum server, SVG badge engine, and embedded dashboard.
+- [x] Implement Phase 7 Testcontainers suites and automated benchmark harness.
+- [x] Configure GitHub Actions workflows and multi-stage Dockerfile.
+- [x] Maintainer manually configures `DOCKER_USERNAME` (value: `ehlers320`) and `DOCKER_TOKEN` in GitHub repository secrets for [`ehlers320/ratus`](https://hub.docker.com/repository/docker/ehlers320/ratus/general).
+- [x] Verify zero Clippy warnings across workspace with `RUSTFLAGS="-D warnings" cargo clippy`.

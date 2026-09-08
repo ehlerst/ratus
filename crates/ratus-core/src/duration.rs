@@ -40,18 +40,17 @@ pub fn parse_duration(input: &str) -> Result<Duration, String> {
 }
 
 /// Format a duration as a compact human-readable string (e.g. "30s", "5m").
-#[allow(clippy::manual_is_multiple_of)]
 pub fn format_duration(dur: Duration) -> String {
     let total_secs = dur.as_secs();
     let millis = dur.subsec_millis();
 
     if total_secs == 0 && millis > 0 {
         format!("{millis}ms")
-    } else if total_secs > 0 && total_secs % 86400 == 0 {
+    } else if total_secs > 0 && total_secs.checked_rem(86400) == Some(0) {
         format!("{}d", total_secs / 86400)
-    } else if total_secs > 0 && total_secs % 3600 == 0 {
+    } else if total_secs > 0 && total_secs.checked_rem(3600) == Some(0) {
         format!("{}h", total_secs / 3600)
-    } else if total_secs > 0 && total_secs % 60 == 0 {
+    } else if total_secs > 0 && total_secs.checked_rem(60) == Some(0) {
         format!("{}m", total_secs / 60)
     } else {
         format!("{total_secs}s")
